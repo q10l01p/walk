@@ -1279,10 +1279,7 @@ class LeggedRobot(BaseTask):
 
             old_bins = self.env_command_bins[env_ids_in_category.cpu().numpy()]
             if len(success_thresholds) > 0:
-                curriculum.update(old_bins, task_rewards, success_thresholds,
-                                  local_range=np.array(
-                                      [0.55, 0.55, 0.55, 0.55, 0.35, 0.25, 0.25, 0.25, 0.25, 1.0, 1.0, 1.0, 1.0, 1.0,
-                                       1.0]))
+                curriculum.update
 
         # assign resampled environments to new categories
         random_env_floats = torch.rand(len(env_ids), device=self.device)
@@ -2637,8 +2634,8 @@ class LeggedRobot(BaseTask):
         if self.cfg.env.record_video:
             # 配置摄像头属性
             self.camera_props = gymapi.CameraProperties()
-            self.camera_props.width = 360
-            self.camera_props.height = 240
+            self.camera_props.width = 256
+            self.camera_props.height = 256
             # 为第一个环境创建摄像头传感器，并设置位置
             self.rendering_camera = self.gym.create_camera_sensor(self.envs[0], self.camera_props)
             self.gym.set_camera_location(self.rendering_camera, self.envs[0], gymapi.Vec3(1.5, 1, 3.0),

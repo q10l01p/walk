@@ -147,9 +147,8 @@ class DeploymentRunner:
                 for agent_name in self.agents.keys():
                     obs, ret, done, info = self.agents[agent_name].step(action)
 
-                    info.update(policy_info)
-                    info.update({"observation": obs, "reward": ret, "done": done, "timestep": i,
-                                 "time": i * self.agents[self.control_agent_name].dt, "action": action, "rpy": self.agents[self.control_agent_name].se.get_rpy(), "torques": self.agents[self.control_agent_name].torques})
+                    info.update
+                    info.update
 
                     if logging: self.logger.log(agent_name, info)
 

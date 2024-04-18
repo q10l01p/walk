@@ -242,7 +242,7 @@ class Curriculum:
 
         Examples:
             >>> param_space = ParamSpace(seed=42, param1=(0, 10, 5))
-            >>> param_space.update(param1=(0, 20, 10))
+            >>> param_space.update
             # 更新param1的范围为0到20，并将其离散化为10个值
 
         Note:
@@ -492,7 +492,7 @@ class RewardThresholdCurriculum(Curriculum):
 
         Examples:
             >>> param_space = ParamSpace(seed=42, param1=(0, 10, 5), param2=(-1, 1, 10))
-            >>> param_space.update(bin_inds=np.array([0, 10]), task_rewards=np.array([0.5, 0.8]), success_thresholds=np.array([0.6, 0.7]))
+            >>> param_space.update
             # 更新索引为0和10的单元格权重，以及它们周围的局部区域权重
 
         Note:

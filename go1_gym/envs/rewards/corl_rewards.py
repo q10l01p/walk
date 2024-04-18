@@ -55,6 +55,8 @@ class CoRLRewards:
     # ------------ reward functions----------------
     def _reward_tracking_lin_vel(self):
         """
+        命令速度与实际基座线性速度之间的误差的奖励。
+
         在CoRLRewards类中添加一个私有方法，用于计算线性速度跟踪的奖励。
 
         该方法通过比较环境中的命令速度与实际基座线性速度之间的误差，来计算奖励值。使用指数函数对误差进行缩放，以得到最终的奖励值。
@@ -422,8 +424,8 @@ class CoRLRewards:
         # 遍历每只脚
         for i in range(4):
             # 根据脚部速度和期望接触状态计算奖励，并累加到总奖励中
-            reward += - (desired_contact[:, i] * (
-                    1 - torch.exp(-1 * foot_velocities[:, i] ** 2 / self.env.cfg.rewards.gait_vel_sigma)))
+            reward += - (desired_contact[:, i] *
+                         (1 - torch.exp(-1 * foot_velocities[:, i] ** 2 / self.env.cfg.rewards.gait_vel_sigma)))
         # 将总奖励除以脚的数量，得到平均奖励
         return reward / 4
 
@@ -431,7 +433,8 @@ class CoRLRewards:
         """
         计算基于关节位置的惩罚奖励。
 
-        该函数计算当前关节位置与默认关节位置之间的差异，以此来生成一个惩罚项。该惩罚项旨在鼓励agent保持在一个相对默认状态的姿势，
+        该函数计算当前关节位置与默认关节位置之间的差异，以此来生成一个惩罚项。
+        该惩罚项旨在鼓励agent保持在一个相对默认状态的姿势，
         减少因过度偏离默认关节位置而可能导致的不稳定或非自然运动。
 
         Attributes:
@@ -515,8 +518,9 @@ class CoRLRewards:
         """
         计算基于动作平滑性的奖励，考虑连续三个时间步的动作变化。
 
-        该函数通过计算连续三个时间步的关节目标位置的二次差分来评估动作的平滑性。这种方法旨在鼓励agent采取更加平滑的动作，
-        减少动作之间的剧烈变化，以此来提高运动的自然性和效率。特别地，该函数会忽略仿真的前两个时间步，以避免在仿真开始时由于缺乏足够历史信息而导致的不准确评估。
+        该函数通过计算连续三个时间步的关节目标位置的二次差分来评估动作的平滑性。
+        这种方法旨在鼓励agent采取更加平滑的动作，减少动作之间的剧烈变化，以此来提高运动的自然性和效率。
+        特别地，该函数会忽略仿真的前两个时间步，以避免在仿真开始时由于缺乏足够历史信息而导致的不准确评估。
 
         Attributes:
             joint_pos_target (torch.Tensor): 当前时间步的关节目标位置，形状为(num_envs, num_dofs)。
@@ -625,8 +629,9 @@ class CoRLRewards:
         """
         计算基于脚部接触力的惩罚奖励。
 
-        该函数通过计算脚部接触力与设定的最大接触力之间的差异来生成一个惩罚项。如果脚部接触力超过了最大接触力的阈值，
-        则会产生惩罚。该方法旨在鼓励agent在行走或跑动时减少对地面的冲击力，以提高运动的稳定性和减少对机器人结构的损害。
+        该函数通过计算脚部接触力与设定的最大接触力之间的差异来生成一个惩罚项。
+        如果脚部接触力超过了最大接触力的阈值，则会产生惩罚。
+        该方法旨在鼓励agent在行走或跑动时减少对地面的冲击力，以提高运动的稳定性和减少对机器人结构的损害。
 
         Attributes:
             contact_forces (torch.Tensor): 接触力的张量，形状为(num_envs, num_feet, 3)。
@@ -654,7 +659,8 @@ class CoRLRewards:
         """
         计算足部清晰度与命令线性关系的奖励。
 
-        此方法根据足部的高度与期望高度之间的差异来计算奖励。奖励值越小表示足部高度与目标高度的匹配程度越高。
+        此方法根据足部的高度与期望高度之间的差异来计算奖励。
+        奖励值越小表示足部高度与目标高度的匹配程度越高。
 
         Methods:
             torch.abs: 计算绝对值。
@@ -695,8 +701,9 @@ class CoRLRewards:
         """
         计算基于脚部撞击速度的惩罚奖励。
 
-        该函数通过检测脚部在接触地面时的垂直速度来计算惩罚奖励。如果脚部在接触地面时的垂直速度过大，即撞击速度大，
-        则会产生惩罚。该方法旨在鼓励agent在接触地面时减少脚部的撞击速度，以此来提高着陆的平稳性和减少对机器人结构的损害。
+        该函数通过检测脚部在接触地面时的垂直速度来计算惩罚奖励。
+        如果脚部在接触地面时的垂直速度过大，即撞击速度大，则会产生惩罚。
+        该方法旨在鼓励agent在接触地面时减少脚部的撞击速度，以此来提高着陆的平稳性和减少对机器人结构的损害。
 
         Attributes:
             prev_foot_velocities (torch.Tensor): 上一时间步脚部的速度张量，形状为(num_envs, num_feet)。
@@ -818,56 +825,73 @@ class CoRLRewards:
             - 该奖励项通过比较当前脚步位置与期望脚步位置之间的差异来实现。
             - 期望脚步位置是根据机器人的速度、期望的步态宽度和长度，以及脚步的相位计算得出的。
         """
-        # 将脚步位置转换到基座坐标系中
+        # 将当前脚步位置转换到基座坐标系中
         cur_footsteps_translated = self.env.foot_positions - self.env.base_pos.unsqueeze(1)
+        # 初始化脚步在身体坐标系中的位置矩阵
         footsteps_in_body_frame = torch.zeros(self.env.num_envs, 4, 3, device=self.env.device)
+        # 遍历四个脚步，将它们转换到身体坐标系
         for i in range(4):
             footsteps_in_body_frame[:, i, :] = quat_apply_yaw(quat_conjugate(self.env.base_quat),
                                                               cur_footsteps_translated[:, i, :])
 
-        # 计算期望的步态宽度和长度
+        # 根据配置决定期望的步态宽度
+        # 如果命令数量大于等于13，使用命令中的数据决定期望的步态宽度
         if self.env.cfg.commands.num_commands >= 13:
-            desired_stance_width = self.env.commands[:, 12:13]
+            desired_stance_width = self.env.commands[:, 12:13]  # 从命令中获取期望的步态宽度
             desired_ys_nom = torch.cat([desired_stance_width / 2, -desired_stance_width / 2, desired_stance_width / 2,
-                                        -desired_stance_width / 2], dim=1)
+                                        -desired_stance_width / 2], dim=1)  # 根据期望的步态宽度计算每个脚步的y位置
         else:
-            desired_stance_width = 0.3
+            desired_stance_width = 0.3  # 如果命令数量小于13，则使用默认的步态宽度0.3
             desired_ys_nom = torch.tensor(
                 [desired_stance_width / 2, -desired_stance_width / 2, desired_stance_width / 2,
-                 -desired_stance_width / 2], device=self.env.device).unsqueeze(0)
+                 -desired_stance_width / 2], device=self.env.device).unsqueeze(0)  # 使用默认步态宽度计算每个脚步的y位置
 
+        # 根据配置决定期望的步态长度
+        # 如果命令数量大于等于14，使用命令中的数据决定期望的步态长度
         if self.env.cfg.commands.num_commands >= 14:
-            desired_stance_length = self.env.commands[:, 13:14]
+            desired_stance_length = self.env.commands[:, 13:14]  # 从命令中获取期望的步态长度
             desired_xs_nom = torch.cat(
                 [desired_stance_length / 2, desired_stance_length / 2, -desired_stance_length / 2,
-                 -desired_stance_length / 2], dim=1)
+                 -desired_stance_length / 2], dim=1)  # 根据期望的步态长度计算每个脚步的x位置
         else:
-            desired_stance_length = 0.45
+            desired_stance_length = 0.45  # 如果命令数量小于14，则使用默认的步态长度0.45
             desired_xs_nom = torch.tensor(
                 [desired_stance_length / 2, desired_stance_length / 2, -desired_stance_length / 2,
-                 -desired_stance_length / 2], device=self.env.device).unsqueeze(0)
+                 -desired_stance_length / 2], device=self.env.device).unsqueeze(0)  # 使用默认步态长度计算每个脚步的x位置
 
         # 计算Raibert启发式偏移
+        # 计算每个脚步的相位，用于后续的Raibert启发式偏移计算
         phases = torch.abs(1.0 - (self.env.foot_indices * 2.0)) * 1.0 - 0.5
+        # 获取控制命令中的频率
         frequencies = self.env.commands[:, 4]
+        # 获取控制命令中的期望x轴速度
         x_vel_des = self.env.commands[:, 0:1]
+        # 获取控制命令中的期望偏航速度
         yaw_vel_des = self.env.commands[:, 2:3]
+        # 根据期望的偏航速度和步态长度计算y轴的期望速度
         y_vel_des = yaw_vel_des * desired_stance_length / 2
+        # 根据相位、期望的y轴速度和频率计算y轴的偏移量
         desired_ys_offset = phases * y_vel_des * (0.5 / frequencies.unsqueeze(1))
+        # 对后两个脚步的y轴偏移量取反，以实现对称的步态
         desired_ys_offset[:, 2:4] *= -1
+        # 根据相位、期望的x轴速度和频率计算x轴的偏移量
         desired_xs_offset = phases * x_vel_des * (0.5 / frequencies.unsqueeze(1))
 
         # 更新期望的脚步位置
+        # 更新期望的y轴脚步位置
         desired_ys_nom = desired_ys_nom + desired_ys_offset
+        # 更新期望的x轴脚步位置
         desired_xs_nom = desired_xs_nom + desired_xs_offset
 
-        # 合并期望的x和y位置
+        # 合并期望的x和y位置，形成最终的期望脚步位置
         desired_footsteps_body_frame = torch.cat((desired_xs_nom.unsqueeze(2), desired_ys_nom.unsqueeze(2)), dim=2)
 
         # 计算当前脚步位置与期望脚步位置之间的差异
         err_raibert_heuristic = torch.abs(desired_footsteps_body_frame - footsteps_in_body_frame[:, :, 0:2])
 
-        # 计算奖励
+        # 计算奖励，奖励为差异的平方和
         reward = torch.sum(torch.square(err_raibert_heuristic), dim=(1, 2))
 
+        # 返回计算得到的奖励
         return reward
+
