@@ -54,6 +54,7 @@ class Cfg(PrefixProto, cli=False):
         num_recording_envs = 1  # 记录视频的环境数量
         debug_viz = False  # 是否开启调试可视化
         all_agents_share = False  # 是否所有智能体共享相同的环境
+        num_actions_gait = 4  # 步态课程输出的数量
 
         # 特权观察相关的配置参数
         priv_observe_friction = True  # 是否观察摩擦力

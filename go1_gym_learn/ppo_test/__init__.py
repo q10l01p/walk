@@ -180,13 +180,20 @@ class Runner:
 
         self.device = device  # 设置运行设备
         self.env = env  # 设置环境
+        self.env.num_actions_gait = 3  # 设置gait动作的数量
 
         # 初始化ActorCritic模型，并将其移至指定设备
-        actor_critic = ActorCritic(self.env.num_obs,
-                                   self.env.num_privileged_obs,
-                                   self.env.num_obs_history,
-                                   self.env.num_actions,
-                                   ).to(self.device)
+        self.actor_critic_gait = ActorCritic(self.env.num_obs,
+                                             self.env.num_privileged_obs,
+                                             self.env.num_obs_history,
+                                             self.env.num_actions_gait,
+                                             ).to(self.device)
+
+        self.actor_critic_actions = ActorCritic(self.env.num_obs,
+                                                self.env.num_privileged_obs,
+                                                self.env.num_obs_history,
+                                                self.env.num_actions,
+                                                ).to(self.device)
 
         # 从给定的路径恢复训练。
         if RunnerArgs.resume:
@@ -200,7 +207,7 @@ class Runner:
             # 原来的loader.load_torch会报错这样该可以使用
             weights = torch.load(RunnerArgs.resume_path + "/checkpoints/ac_weights_last.pt")
 
-            actor_critic.load_state_dict(state_dict=weights)
+            self.actor_critic_actions.load_state_dict(state_dict=weights)
 
             if hasattr(self.env, "curricula") and RunnerArgs.resume_curriculum:
                 # load curriculum state
@@ -214,13 +221,16 @@ class Runner:
                     self.env.curricula[gait_id].weights = distribution_last[f"weights_{gait_name}"]
                     print(gait_name)
 
-        # 初始化PPO算法
-        self.alg = PPO(actor_critic, device=self.device)
         self.num_steps_per_env = RunnerArgs.num_steps_per_env  # 设置每个环境的步数
 
-        # 初始化存储和模型
-        self.alg.init_storage(self.env.num_train_envs, self.num_steps_per_env, [self.env.num_obs],
-                              [self.env.num_privileged_obs], [self.env.num_obs_history], [self.env.num_actions])
+        # 初始化PPO算法
+        self.alg_gait = PPO(self.actor_critic_gait, device=self.device)
+        self.alg_gait.init_storage(self.env.num_train_envs, self.num_steps_per_env, [self.env.num_obs],
+                              [self.env.num_privileged_obs], [self.env.num_obs_history], [self.env.num_actions_gait])
+
+        self.alg_actions = PPO(self.actor_critic_actions, device=self.device)
+        self.alg_actions.init_storage(self.env.num_train_envs, self.num_steps_per_env, [self.env.num_obs],
+                                      [self.env.num_privileged_obs], [self.env.num_obs_history], [self.env.num_actions])
 
         # 初始化总时间步数、总时间、当前学习迭代次数和最后记录迭代次数
         self.tot_time_steps = 0
@@ -289,7 +299,8 @@ class Runner:
         obs, privileged_obs, obs_history = obs.to(self.device), privileged_obs.to(self.device), obs_history.to(
             self.device)  # 将观察结果转移到指定设备
         # 切换到训练模式
-        self.alg.actor_critic.train()  # 将模型切换到训练模式
+        self.alg_gait.actor_critic.train()  # 将模型切换到训练模式
+        self.alg_actions.actor_critic.train()  # 将模型切换到训练模式
 
         # 初始化奖励和长度缓冲区
         rew_buffer = deque(maxlen=100)  # 初始化奖励缓冲区
@@ -308,18 +319,24 @@ class Runner:
             with torch.inference_mode():  # 开启推理模式，减少内存使用
                 for i in range(self.num_steps_per_env):  # 对每个环境步骤进行迭代
                     # 为训练环境生成动作
-                    actions_train = self.alg.act(obs[:num_train_envs], privileged_obs[:num_train_envs],
-                                                 obs_history[:num_train_envs])  # 生成训练环境的动作
+                    actions_gits = self.alg_gait.act(obs[:num_train_envs], privileged_obs[:num_train_envs],
+                                                     obs_history[:num_train_envs])  # 生成训练环境的动作
+
+                    actions_train = self.alg_actions.act(obs[:num_train_envs], privileged_obs[:num_train_envs],
+                                                         obs_history[:num_train_envs])  # 生成训练环境的动作
 
                     # 根据是否评估专家来为评估环境生成动作
                     if eval_expert:
-                        actions_eval = self.alg.actor_critic.act_teacher(obs_history[num_train_envs:],
-                                                                         privileged_obs[
-                                                                         num_train_envs:])  # 生成评估环境的动作（专家）
+                        # 生成评估环境的动作（专家）
+                        actions_eval = self.actor_critic_actions .act_teacher(obs_history[num_train_envs:],
+                                                                              privileged_obs[num_train_envs:])
                     else:
-                        actions_eval = self.alg.actor_critic.act_student(obs_history[num_train_envs:])  # 生成评估环境的动作（学生）
+                        # 生成评估环境的动作（学生）
+                        actions_eval = self.actor_critic_actions.act_student(obs_history[num_train_envs:])
+
                     # 执行动作并获取结果
-                    ret = self.env.step(torch.cat((actions_train, actions_eval), dim=0))  # 执行动作并获取结果
+                    ret = self.env.step(torch.cat((actions_train, actions_eval), dim=0))
+
                     obs_dict, rewards, dones, infos = ret  # 解包结果
                     # 更新观察结果
                     obs, privileged_obs, obs_history = obs_dict["obs"], obs_dict["privileged_obs"], obs_dict[
@@ -330,7 +347,8 @@ class Runner:
                         self.device), obs_history.to(self.device), rewards.to(self.device), dones.to(
                         self.device)  # 转移结果到指定设备
                     # 处理环境步骤
-                    self.alg.process_env_step(rewards[:num_train_envs], dones[:num_train_envs], infos)  # 处理环境步骤
+                    self.alg_gait.process_env_step(rewards[:num_train_envs], dones[:num_train_envs], infos)
+                    self.alg_actions.process_env_step(rewards[:num_train_envs], dones[:num_train_envs], infos)
 
                     # 如果有训练环节的信息，记录到日志
                     if 'train/episode' in infos:
@@ -370,7 +388,8 @@ class Runner:
 
             # 执行学习步骤
             start = stop  # 更新开始时间
-            self.alg.compute_returns(obs_history[:num_train_envs], privileged_obs[:num_train_envs])  # 计算回报
+            self.alg_gait.compute_returns(obs_history[:num_train_envs], privileged_obs[:num_train_envs])  # 计算回报
+            self.alg_actions.compute_returns(obs_history[:num_train_envs], privileged_obs[:num_train_envs])  # 计算回报
 
             # 如果达到课程结构保存频率，保存课程信息
             if it % curriculum_dump_freq == 0:
@@ -385,7 +404,8 @@ class Runner:
                                     path=f"curriculum/distribution.pkl", append=True)  # 保存课程分布信息
 
             # 更新算法模型并记录学习时间
-            mean_value_loss, mean_surrogate_loss, mean_adaptation_module_loss, mean_decoder_loss, mean_decoder_loss_student, mean_adaptation_module_test_loss, mean_decoder_test_loss, mean_decoder_test_loss_student = self.alg.update  # 更新模型并获取损失
+            mean_value_loss, mean_surrogate_loss, mean_adaptation_module_loss, mean_decoder_loss, mean_decoder_loss_student, mean_adaptation_module_test_loss, mean_decoder_test_loss, mean_decoder_test_loss_student = self.alg_gait.update  # 更新模型并获取损失
+            mean_value_loss, mean_surrogate_loss, mean_adaptation_module_loss, mean_decoder_loss, mean_decoder_loss_student, mean_adaptation_module_test_loss, mean_decoder_test_loss, mean_decoder_test_loss_student = self.alg_actions.update  # 更新模型并获取损失
             stop = time.time()  # 记录停止时间
             learn_time = stop - start  # 计算学习时间
 
@@ -421,7 +441,8 @@ class Runner:
             if it % RunnerArgs.save_interval == 0:
                 with logger.Sync():  # 同步日志记录器
                     # 保存演员-评论家模型的权重
-                    logger.torch_save(self.alg.actor_critic.state_dict(), f"checkpoints/ac_weights_{it:06d}.pt")
+                    logger.torch_save(self.alg_actions.actor_critic.state_dict(), f"checkpoints/ac_weights_{it:06d}.pt")
+                    logger.torch_save(self.alg_gait.actor_critic.state_dict(), f"checkpoints/ac_weights_{it:06d}.pt")
                     # 复制最新的权重作为最后的权重
                     logger.duplicate(f"checkpoints/ac_weights_{it:06d}.pt", f"checkpoints/ac_weights_last.pt")
 
@@ -430,13 +451,16 @@ class Runner:
                     os.makedirs(path, exist_ok=True)  # 创建路径
 
                     adaptation_module_path = f'{path}/adaptation_module_latest.jit'  # 适应模块的路径
-                    adaptation_module = copy.deepcopy(self.alg.actor_critic.adaptation_module).to(
+                    adaptation_module = copy.deepcopy(self.alg_actions.actor_critic.adaptation_module).to(
+                        'cpu')  # 深拷贝适应模块并移至CPU
+                    adaptation_module = copy.deepcopy(self.alg_gait.actor_critic.adaptation_module).to(
                         'cpu')  # 深拷贝适应模块并移至CPU
                     traced_script_adaptation_module = torch.jit.script(adaptation_module)  # 将适应模块转换为Torch脚本
                     traced_script_adaptation_module.save(adaptation_module_path)  # 保存适应模块的Torch脚本
 
                     body_path = f'{path}/body_latest.jit'  # 身体模型的路径
-                    body_model = copy.deepcopy(self.alg.actor_critic.actor_body).to('cpu')  # 深拷贝身体模型并移至CPU
+                    body_model = copy.deepcopy(self.alg_actions.actor_critic.actor_body).to('cpu')  # 深拷贝身体模型并移至CPU
+                    body_model = copy.deepcopy(self.alg_gait.actor_critic.actor_body).to('cpu')  # 深拷贝身体模型并移至CPU
                     traced_script_body_module = torch.jit.script(body_model)  # 将身体模型转换为Torch脚本
                     traced_script_body_module.save(body_path)  # 保存身体模型的Torch脚本
 
@@ -450,7 +474,8 @@ class Runner:
         # 学习结束后，保存模型和其他信息
         with logger.Sync():
             # 保存模型的状态字典
-            logger.torch_save(self.alg.actor_critic.state_dict(), f"checkpoints/ac_weights_{it:06d}.pt")
+            logger.torch_save(self.alg_actions.actor_critic.state_dict(), f"checkpoints/ac_weights_{it:06d}.pt")
+            logger.torch_save(self.alg_gait.actor_critic.state_dict(), f"checkpoints/ac_weights_{it:06d}.pt")
             # 复制最新的模型权重文件
             logger.duplicate(f"checkpoints/ac_weights_{it:06d}.pt", f"checkpoints/ac_weights_last.pt")
 
@@ -460,13 +485,15 @@ class Runner:
 
             # 保存适应模块
             adaptation_module_path = f'{path}/adaptation_module_latest.jit'
-            adaptation_module = copy.deepcopy(self.alg.actor_critic.adaptation_module).to('cpu')
+            adaptation_module = copy.deepcopy(self.alg_actions.actor_critic.adaptation_module).to('cpu')
+            adaptation_module = copy.deepcopy(self.alg_gait.actor_critic.adaptation_module).to('cpu')
             traced_script_adaptation_module = torch.jit.script(adaptation_module)
             traced_script_adaptation_module.save(adaptation_module_path)
 
             # 保存身体模型
             body_path = f'{path}/body_latest.jit'
-            body_model = copy.deepcopy(self.alg.actor_critic.actor_body).to('cpu')
+            body_model = copy.deepcopy(self.alg_actions.actor_critic.actor_body).to('cpu')
+            body_model = copy.deepcopy(self.alg_gait.actor_critic.actor_body).to('cpu')
             traced_script_body_module = torch.jit.script(body_model)
             traced_script_body_module.save(body_path)
 

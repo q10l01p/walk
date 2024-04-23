@@ -170,7 +170,8 @@ class CoRLRewards:
         """
         计算基于非平面基座姿态的惩罚值。
 
-        该方法旨在惩罚代理的基座如果没有保持在一个平面姿态上。通过计算代理相对于重力方向的投影在XY平面上的分量的平方和，
+        该方法旨在惩罚代理的基座如果没有保持在一个平面姿态上。
+        通过计算代理相对于重力方向的投影在XY平面上的分量的平方和，
         来生成一个惩罚值，该值随着代理偏离平面姿态的程度增加而增加，从而鼓励代理保持平面姿态。
 
         Attributes:
@@ -325,7 +326,8 @@ class CoRLRewards:
         """
         计算跳跃高度的奖励。
 
-        此方法用于根据agent的跳跃高度与目标跳跃高度之间的差异来计算奖励。目标跳跃高度是通过环境中的指令和配置文件中设定的基础高度目标来确定的。
+        此方法用于根据agent的跳跃高度与目标跳跃高度之间的差异来计算奖励。
+        目标跳跃高度是通过环境中的指令和配置文件中设定的基础高度目标来确定的。
         奖励值是负的跳跃高度差的平方，意味着跳得越接近目标高度，奖励越高（损失越小）。
 
         Attributes:
@@ -731,40 +733,12 @@ class CoRLRewards:
         # 在脚部维度上求和，得到每个环境的惩罚值
         return torch.sum(rew_foot_impact_vel, dim=1)
 
-    def _reward_collision(self):
-        """
-        计算基于选定身体部位碰撞的惩罚奖励。
-
-        该函数通过检测选定身体部位是否发生碰撞来生成惩罚项。如果检测到碰撞（即接触力超过0.1的阈值），则会产生惩罚。
-        该方法旨在鼓励agent避免与环境中的物体发生碰撞，以此来提高运动的安全性和避免潜在的损害。
-
-        Attributes:
-            contact_forces (torch.Tensor): 接触力的张量，形状为(num_envs, num_bodies, 3)。
-            penalised_contact_indices (list[int]): 需要被惩罚碰撞的身体部位索引列表。
-
-        Returns:
-            torch.Tensor: 基于碰撞检测计算出的惩罚奖励，形状为(num_envs,)。
-
-        Examples:
-            >>> agent = YourAgentClass()  # 代理类的实例化
-            >>> reward = agent._reward_collision()  # 计算碰撞的惩罚奖励
-            >>> print(reward)
-
-        Note:
-            - 该惩罚项通过检测选定身体部位的接触力是否超过0.1的阈值来判断是否发生碰撞。
-            - 只有当检测到碰撞时，才会产生惩罚。
-        """
-        # 检测选定身体部位的接触力是否超过0.1的阈值，超过则视为发生碰撞
-        collision_detection = 1. * (torch.norm(self.env.contact_forces[:,
-                                               self.env.penalised_contact_indices, :], dim=-1) > 0.1)
-        # 在身体部位维度上求和，得到每个环境的碰撞惩罚值
-        return torch.sum(collision_detection, dim=1)
-
     def _reward_orientation_control(self):
         """
         计算基于基座朝向控制的惩罚奖励。
 
-        该函数通过比较当前基座的朝向与期望朝向之间的差异来生成惩罚项。期望的朝向是根据给定的滚动和俯仰命令计算得出的。
+        该函数通过比较当前基座的朝向与期望朝向之间的差异来生成惩罚项。
+        期望的朝向是根据给定的滚动和俯仰命令计算得出的。
         该方法旨在鼓励agent维持一个特定的朝向，以此来提高运动的稳定性和效率。
 
         Attributes:

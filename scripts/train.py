@@ -30,11 +30,17 @@ def train_go1(headless=True):
 
     from ml_logger import logger
 
-    from go1_gym_learn.ppo_cse import Runner
     from go1_gym.envs.wrappers.history_wrapper import HistoryWrapper
-    from go1_gym_learn.ppo_cse.actor_critic import AC_Args
-    from go1_gym_learn.ppo_cse.ppo import PPO_Args
-    from go1_gym_learn.ppo_cse import RunnerArgs
+
+    # from go1_gym_learn.ppo_cse import Runner
+    # from go1_gym_learn.ppo_cse.actor_critic import AC_Args
+    # from go1_gym_learn.ppo_cse.ppo import PPO_Args
+    # from go1_gym_learn.ppo_cse import RunnerArgs
+
+    from go1_gym_learn.ppo_test import Runner
+    from go1_gym_learn.ppo_test.actor_critic import AC_Args
+    from go1_gym_learn.ppo_test.ppo import PPO_Args
+    from go1_gym_learn.ppo_test import RunnerArgs
 
     # 调用配置函数，配置GO1机器人的环境参数
     config_go1(Cfg)
@@ -171,6 +177,9 @@ def train_go1(headless=True):
     Cfg.env.observe_timing_parameter = False
     # 设置是否观察时钟输入
     Cfg.env.observe_clock_inputs = True
+
+    # 设置步态课程的数量
+    Cfg.env.num_actions_gait = 3
 
     # 设置地形高度的随机化范围
     Cfg.domain_rand.tile_height_range = [-0.0, 0.0]

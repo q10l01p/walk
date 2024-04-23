@@ -310,6 +310,7 @@ class Runner:
                     # 为训练环境生成动作
                     actions_train = self.alg.act(obs[:num_train_envs], privileged_obs[:num_train_envs],
                                                  obs_history[:num_train_envs])  # 生成训练环境的动作
+
                     # 根据是否评估专家来为评估环境生成动作
                     if eval_expert:
                         actions_eval = self.alg.actor_critic.act_teacher(obs_history[num_train_envs:],
